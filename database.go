@@ -54,9 +54,38 @@ func SetupDatabase() error {
 	return nil
 }
 
-// SetDataForUsername inserts the data into the database
-func SetDataForUsername(username string, data string) (int, error) {
+func UpdateRow(username, data string) (int, error) {
+	if err := SetupDatabase(); err != nil {
+		return 0, err
+	}
 
+	// prepare query
+	query := "UPDATE users SET data = $1 WHERE username = $2"
+	stmt, err := db.Prepare(query)
+	if err != nil {
+		return 0, err
+	}
+	defer stmt.Close()
+
+	// execute query
+	res, err := stmt.Exec(data, username)
+	if err != nil {
+		return 0, err
+	}
+
+	// get affected rows
+	affRows, err := res.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+
+	fmt.Printf("%d rows updated\n", affRows)
+
+	return int(affRows), nil
+}
+
+// InsertRow inserts the data into the database
+func InsertRow(username, data string) (int, error) {
 	if err := SetupDatabase(); err != nil {
 		return 0, err
 	}
@@ -89,7 +118,6 @@ func SetDataForUsername(username string, data string) (int, error) {
 // GetDataForUsername selects the data associated
 // with the given username
 func GetDataForUsername(username string) (string, error) {
-
 	if err := SetupDatabase(); err != nil {
 		return "", err
 	}

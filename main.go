@@ -25,8 +25,10 @@ func main() {
 			"Status": "OK",
 		})
 	})
+
 	router.GET("/select", selectHandler)
 	router.POST("/insert", insertHandler)
+	router.POST("/update", updateHandler)
 
 	var err error
 	if err = SetupDatabase(); err != nil {
@@ -40,10 +42,34 @@ func main() {
 	}
 }
 
+func updateHandler(c *gin.Context) {
+	var data BaseUsersData
+	err := c.BindJSON(&data)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+	}
+
+	fmt.Println("updateHandler called username: " + data.Username)
+
+	rows, err := UpdateRow(data.Username, data.Data)
+	if err != nil {
+		fmt.Printf("updatedata error: %s\n", err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	fmt.Printf("updated data: %#v\n", data)
+
+	c.JSON(200, gin.H{"Status": "OK", "Rows updated": rows})
+}
+
 // selectHandler handles the /select endpoint by querying
 // the db for the given username
 func selectHandler(c *gin.Context) {
-
 	username, ok := c.GetQuery("username")
 	if !ok {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "username not provided"})
@@ -68,9 +94,6 @@ func selectHandler(c *gin.Context) {
 // insertHandler handles the /insert endpoint by inserting
 // the given username and data into the db
 func insertHandler(c *gin.Context) {
-
-	fmt.Println("insertHandler called")
-
 	var data BaseUsersData
 	err := c.BindJSON(&data)
 	if err != nil {
@@ -79,7 +102,9 @@ func insertHandler(c *gin.Context) {
 		})
 	}
 
-	rows, err := SetDataForUsername(data.Username, data.Data)
+	fmt.Println("insertHandler called username: " + data.Username)
+
+	rows, err := InsertRow(data.Username, data.Data)
 	if err != nil {
 		fmt.Printf("setdata error: %s\n", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -90,5 +115,5 @@ func insertHandler(c *gin.Context) {
 
 	fmt.Printf("inserted data: %#v\n", data)
 
-	c.JSON(200, gin.H{"Status": "OK", "Rows": rows})
+	c.JSON(200, gin.H{"Status": "OK", "Rows inserted": rows})
 }
