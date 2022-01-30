@@ -1,40 +1,14 @@
 package main
 
 import (
-	"context"
-	"log"
+	"fmt"
 	"net/http"
 	"os"
 
-	"cloud.google.com/go/logging"
 	"github.com/gin-gonic/gin"
 )
 
-var logger *log.Logger
-
 func main() {
-
-	ctx := context.Background()
-
-	// Set Google Cloud Platform project ID
-	projectID := "checkup-339803"
-
-	// Creates a client.
-	client, err := logging.NewClient(ctx, projectID)
-	if err != nil {
-		log.Fatalf("Failed to create client: %v", err)
-	}
-	defer client.Close()
-
-	// Sets the name of the log to write to.
-	logName := "checkup-logs"
-
-	logger = client.Logger(logName).StandardLogger(logging.Info)
-
-	// Logs "hello world", log entry is visible at
-	// Cloud Logs.
-	logger.Println("hello world")
-
 	router := gin.New()
 	router.Use(
 		gin.Recovery(),
@@ -46,6 +20,7 @@ func main() {
 	}
 
 	router.GET("/", func(c *gin.Context) {
+		fmt.Println("Health check")
 		c.JSON(200, gin.H{
 			"Status": "OK",
 		})
@@ -53,30 +28,29 @@ func main() {
 	router.GET("/select", selectHandler)
 	router.POST("/insert", insertHandler)
 
+	var err error
 	if err = SetupDatabase(); err != nil {
-		logger.Printf("could not setup database: %s", err.Error())
-		return
+		fmt.Println("Could not setup database: " + err.Error())
 	}
 
-	logger.Print("Listening on port " + port)
+	fmt.Println("Listening on port " + port)
 
-	if err := router.Run(":" + port); err != nil {
-		logger.Fatal(err)
+	if err = router.Run(":" + port); err != nil {
+		panic(err)
 	}
 }
 
 func selectHandler(c *gin.Context) {
 
-	logger.Print("selectHandler called")
-
-	var data BaseUsersData
-	err := c.BindJSON(&data)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	username, ok := c.GetQuery("username")
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "username not provided"})
 		return
 	}
 
-	jsonData, err := GetDataForUsername(data.Username)
+	fmt.Println("selectHandler called username: " + username)
+
+	data, err := GetDataForUsername(username)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -84,14 +58,14 @@ func selectHandler(c *gin.Context) {
 
 	c.JSON(200, gin.H{
 		"Status":   "OK",
-		"Username": data.Username,
-		"Data":     jsonData,
+		"Username": username,
+		"Data":     data,
 	})
 }
 
 func insertHandler(c *gin.Context) {
 
-	logger.Print("insertHandler called")
+	fmt.Println("insertHandler called")
 
 	var data BaseUsersData
 	err := c.BindJSON(&data)
@@ -103,11 +77,14 @@ func insertHandler(c *gin.Context) {
 
 	rows, err := SetDataForUsername(data.Username, data.Data)
 	if err != nil {
+		fmt.Printf("setdata error: %s\n", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),
 		})
 		return
 	}
+
+	fmt.Printf("inserted data: %#v\n", data)
 
 	c.JSON(200, gin.H{"Status": "OK", "Rows": rows})
 }

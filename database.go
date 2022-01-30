@@ -2,9 +2,8 @@ package main
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	_ "github.com/lib/pq"
 )
@@ -12,8 +11,7 @@ import (
 var db *sql.DB
 
 type dbCredentials struct {
-	Host string `json:"host"`
-	// Port     string `json:"port"`
+	Host     string `json:"host"`
 	User     string `json:"user"`
 	Password string `json:"password"`
 	Database string `json:"database"`
@@ -27,25 +25,18 @@ func SetupDatabase() error {
 		}
 	}
 
-	// read database credentials from db.env file
-	dat, err := ioutil.ReadFile("db.env")
-	if err != nil {
-		return fmt.Errorf("could not find db.env file: " + err.Error())
+	creds := dbCredentials{
+		Host:     os.Getenv("DB_HOST"),
+		User:     os.Getenv("DB_USER"),
+		Password: os.Getenv("DB_PASSWORD"),
+		Database: os.Getenv("DB_DATABASE"),
 	}
-
-	// parse database credentials
-	var creds dbCredentials
-	err = json.Unmarshal(dat, &creds)
-	if err != nil {
-		return fmt.Errorf("could not parse db.env file: " + err.Error())
-	}
-
-	socketDir := fmt.Sprintf("/cloudsql/%s/.s.PGSQL.5432.", creds.Host)
-
-	dbConfig := fmt.Sprintf("host=%s/%s user=%s password=%s dbname=%s sslmode=disable", socketDir, creds.Host, creds.User, creds.Password, creds.Database)
+	socketDir := fmt.Sprintf("/cloudsql/%s", creds.Host)
+	dbConfig := fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable", socketDir, creds.User, creds.Password, creds.Database)
 
 	// connect to database
-	db, err = sql.Open("pgx", dbConfig)
+	var err error
+	db, err = sql.Open("postgres", dbConfig)
 	if err != nil {
 		return fmt.Errorf("could not connect to database: " + err.Error())
 	}
@@ -56,10 +47,17 @@ func SetupDatabase() error {
 		return fmt.Errorf("could not ping database: " + err.Error())
 	}
 
+	fmt.Println("Database connected")
+
 	return nil
 }
 
 func SetDataForUsername(username string, data string) (int, error) {
+
+	if err := SetupDatabase(); err != nil {
+		return 0, err
+	}
+
 	// prepare query
 	query := "INSERT INTO users (username, data) VALUES ($1, $2)"
 	stmt, err := db.Prepare(query)
@@ -80,10 +78,17 @@ func SetDataForUsername(username string, data string) (int, error) {
 		return 0, err
 	}
 
+	fmt.Printf("%d rows inserted\n", affRows)
+
 	return int(affRows), nil
 }
 
 func GetDataForUsername(username string) (string, error) {
+
+	if err := SetupDatabase(); err != nil {
+		return "", err
+	}
+
 	// prepare query
 	query := "SELECT data FROM users WHERE username = $1"
 	stmt, err := db.Prepare(query)
@@ -99,14 +104,18 @@ func GetDataForUsername(username string) (string, error) {
 	}
 	defer rows.Close()
 
+	if !rows.Next() {
+		return "", fmt.Errorf("no data found for username: " + username)
+	}
+
 	// read data
 	var data string
-	for rows.Next() {
-		err = rows.Scan(&data)
-		if err != nil {
-			return "", err
-		}
+	err = rows.Scan(&data)
+	if err != nil {
+		return "", err
 	}
+
+	fmt.Println("Data read from DB: " + data)
 
 	return data, nil
 }
