@@ -40,6 +40,8 @@ func main() {
 	}
 }
 
+// selectHandler handles the /select endpoint by querying
+// the db for the given username
 func selectHandler(c *gin.Context) {
 
 	username, ok := c.GetQuery("username")
@@ -63,6 +65,8 @@ func selectHandler(c *gin.Context) {
 	})
 }
 
+// insertHandler handles the /insert endpoint by inserting
+// the given username and data into the db
 func insertHandler(c *gin.Context) {
 
 	fmt.Println("insertHandler called")

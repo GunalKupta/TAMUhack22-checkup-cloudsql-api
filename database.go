@@ -17,6 +17,8 @@ type dbCredentials struct {
 	Database string `json:"database"`
 }
 
+// SetupDatabase sets up the database connection
+// if it doesn't already exist
 func SetupDatabase() error {
 
 	if db != nil {
@@ -52,6 +54,7 @@ func SetupDatabase() error {
 	return nil
 }
 
+// SetDataForUsername inserts the data into the database
 func SetDataForUsername(username string, data string) (int, error) {
 
 	if err := SetupDatabase(); err != nil {
@@ -83,6 +86,8 @@ func SetDataForUsername(username string, data string) (int, error) {
 	return int(affRows), nil
 }
 
+// GetDataForUsername selects the data associated
+// with the given username
 func GetDataForUsername(username string) (string, error) {
 
 	if err := SetupDatabase(); err != nil {
