@@ -51,7 +51,7 @@ func updateHandler(c *gin.Context) {
 		})
 	}
 
-	fmt.Println("updateHandler called username: " + data.Username)
+	fmt.Printf("updating with data: %#v\n", data)
 
 	rows, err := UpdateRow(data.Username, data.Data)
 	if err != nil {
@@ -62,8 +62,6 @@ func updateHandler(c *gin.Context) {
 		return
 	}
 
-	fmt.Printf("updated data: %#v\n", data)
-
 	c.JSON(200, gin.H{"Status": "OK", "Rows updated": rows})
 }
 
@@ -71,7 +69,7 @@ func updateHandler(c *gin.Context) {
 // the db for the given username
 func selectHandler(c *gin.Context) {
 	username, ok := c.GetQuery("username")
-	if !ok {
+	if !ok || username == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "username not provided"})
 		return
 	}
